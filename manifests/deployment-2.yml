@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: "aksdemoqm-2936"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: "aksdemoqm-2936"
+  template:
+    metadata:
+      labels:
+        app: "aksdemoqm-2936"
+    spec:
+      containers:
+        - name: "aksdemoqm-2936"
+          image: "acrqmdemo.azurecr.io/aksdemoqm"
+          ports:
+          - containerPort: 80
