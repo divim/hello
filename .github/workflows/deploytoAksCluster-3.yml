@@ -1,0 +1,50 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: acrdemo280812nocdemo.azurecr.io
+        username: ${{ secrets.acr_acrdemo280812nocdemo_username }}
+        password: ${{ secrets.acr_acrdemo280812nocdemo_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/" -f  "Dockerfile" -t acrdemo280812nocdemo.azurecr.io/aksnocdemo:${{ github.sha }} --label dockerfile-path=Dockerfile
+        docker push acrdemo280812nocdemo.azurecr.io/aksnocdemo:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_aksnocdemo_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep aks-noc-demobd7b | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace aks-noc-demobd7b`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: aks-noc-demobd7b
+        container-registry-url: acrdemo280812nocdemo.azurecr.io
+        container-registry-username: ${{ secrets.acr_acrdemo280812nocdemo_username }}
+        container-registry-password: ${{ secrets.acr_acrdemo280812nocdemo_password }}
+        secret-name: aksnocdemodockerauth
+       
+    - uses: azure/k8s-deploy@v1.2
+      with:
+        namespace: aks-noc-demobd7b
+        manifests: |
+          manifests/deployment-3.yml
+          manifests/service-3.yml
+        images: |
+          acrdemo280812nocdemo.azurecr.io/aksnocdemo:${{ github.sha }}
+        imagepullsecrets: |
+          aksnocdemodockerauth
